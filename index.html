@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Party Planner</title>
+    <!-- Load Tailwind CSS from CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f9fafb;
+        }
+    </style>
+</head>
+<body>
+    <!-- The root element where the React application will be rendered -->
+    <div id="root"></div>
+
+    <!-- 1. Load React and ReactDOM from UMD format (FIX: Ensures React is globally defined before Babel runs) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- 2. Load Babel for client-side JSX transpilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+
+    <script type="text/babel" data-presets="react">
+        // Ensure React is available globally for Babel to compile to React.createElement
+        const { useState, useEffect } = React; 
+
+        // --- View Components for Tabs ---
+        // These components need to be defined *before* App uses them.
+
+        const MenuPlanView = ({ plan }) => (
+          <div className="space-y-4">
+            <h3 className="text-xl font-bold text-indigo-700 flex items-center mb-4">
+              <i className="fa-solid fa-cart-shopping w-5 h-5 mr-2"></i> Menu & Shopping List
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 shadow-md rounded-lg">
+                <thead className="bg-indigo-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {plan.map((item, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.item}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.quantity}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.category}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+
+        const TaskListView = ({ tasks }) => (
+          <div className="space-y-4">
+            <h3 className="text-xl font-bold text-indigo-700 flex items-center mb-4">
+              <i className="fa-solid fa-list-check w-5 h-5 mr-2"></i> Pre-Event To-Do's
+            </h3>
+            <ul className="space-y-3">
+              {tasks.map((taskItem, index) => (
+                <li key={index} className="flex items-start p-4 bg-white rounded-lg shadow border-l-4 border-indigo-500">
+                  <div className="flex-shrink-0 mt-0.5 text-indigo-600 font-bold w-1/4 text-sm">{taskItem.deadline}</div>
+                  <div className="ml-3 text-sm font-medium text-gray-800 w-3/4">{taskItem.task}</div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+
+        const TimelineView = ({ timeline }) => (
+          <div className="space-y-4">
+            <h3 className="text-xl font-bold text-indigo-700 flex items-center mb-4">
+              <i className="fa-solid fa-calendar-day w-5 h-5 mr-2"></i> Day-of Schedule / Checklist
+            </h3>
+            <ul className="space-y-3">
+              {timeline.map((event, index) => (
+                <li key={index} className="flex items-start p-4 bg-white rounded-lg shadow border-l-4 border-emerald-500">
+                  <div className="flex-shrink-0 mt-0.5 text-emerald-600 font-bold w-1/4 text-base">{event.time}</div>
+                  <div className="ml-3 text-base font-medium text-gray-800 w-3/4">{event.activity}</div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+
+        const DecorationIdeasView = ({ ideas }) => (
+          <div className="space-y-4">
+            <h3 className="text-xl font-bold text-indigo-700 flex items-center mb-4">
+              <i className="fa-solid fa-sparkles w-5 h-5 mr-2"></i> Decoration & Theme Ideas
+            </h3>
+            <ul className="space-y-3">
+              {ideas.map((idea, index) => (
+                <li key={index} className="p-4 bg-white rounded-lg shadow">
+                  <p className="text-sm text-gray-500 font-medium">{idea.area}:</p>
+                  <p className="text-base text-gray-800 font-semibold">{idea.item}</p>
+                  <p className="text-sm text-indigo-500 italic">Style: {idea.style}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+
+        // --- Planner Section Definitions (API Endpoints & Data Keys) ---
+        const RESULT_SECTIONS = {
+            menu: { label: 'Menu & Shopping List', icon: 'fa-solid fa-cart-shopping', component: MenuPlanView, apiPath: '/api/menu', dataKey: 'MenuPlan' },
+            tasks: { label: 'Pre-Event To-Do\'s', icon: 'fa-solid fa-list-check', component: TaskListView, apiPath: '/api/tasks', dataKey: 'TaskList' },
+            timeline: { label: 'Day-of Schedule', icon: 'fa-solid fa-calendar-day', component: TimelineView, apiPath: '/api/timeline', dataKey: 'Timeline' },
+            decorations: { label: 'Decorations', icon: 'fa-solid fa-sparkles', component: DecorationIdeasView, apiPath: '/api/decorations', dataKey: 'DecorationIdeas' },
+        };
+
+        // --- Main Workflow Tabs ---
+        const WORKFLOW_TABS = {
+            full: { 
+                label: 'Full Planning', 
+                icon: 'fa-solid fa-file-alt', 
+                sections: [RESULT_SECTIONS.menu, RESULT_SECTIONS.tasks, RESULT_SECTIONS.timeline, RESULT_SECTIONS.decorations],
+                defaultResultTab: 'menu'
+            },
+            menu_shopping: { 
+                label: 'Menu & Shopping List', 
+                icon: 'fa-solid fa-utensils', 
+                sections: [RESULT_SECTIONS.menu],
+                defaultResultTab: 'menu'
+            },
+            timeline_tasks: { 
+                label: 'Timeline & Task Builder', 
+                icon: 'fa-solid fa-clock', 
+                sections: [RESULT_SECTIONS.tasks, RESULT_SECTIONS.timeline],
+                defaultResultTab: 'tasks'
+            },
+            decorations_only: { 
+                label: 'Decoration Ideas', 
+                icon: 'fa-solid fa-sparkles', 
+                sections: [RESULT_SECTIONS.decorations],
+                defaultResultTab: 'decorations'
+            },
+        };
+
+
+        // --- Main Application Component (Adapted from App.js) ---
+
+        const App = () => {
+            // --- State Management ---
+            const [step, setStep] = useState('input'); // 'input', 'loading', 'results'
+            const [mainActiveTab, setMainActiveTab] = useState('full'); // 'full', 'menu_shopping', etc.
+            const [resultActiveTab, setResultActiveTab] = useState('menu'); // The internal tab (Menu, Tasks, Timeline...)
+            const [loadingMessage, setLoadingMessage] = useState('');
+            const [formData, setFormData] = useState({
+                guests: 10,
+                partyDetails: 'Casual birthday party for 10 adults. Needs a fun, relaxed vibe.',
+                appetizers: 'Chips & dip, Cheese board',
+                mainCourses: 'Taco bar, Chili',
+                sideDishes: 'Cornbread, Salad',
+                desserts: 'Cake, Brownies',
+                beverages: 'Soda, Beer, Water',
+                otherItems: 'Plates, napkins, ice',
+            });
+            const [planData, setPlanData] = useState({}); // Stores aggregated results
+            const [error, setError] = useState(null);
+
+            // --- Utility Function: Execute API Call with Retry ---
+            const runApiCallWithRetry = async (url, payload, taskName) => {
+                let attempts = 0;
+                const maxAttempts = 3;
+                
+                while (attempts < maxAttempts) {
+                    attempts++;
+                    setLoadingMessage(`Attempt ${attempts}/${maxAttempts}: Generating ${taskName}...`);
+                    try {
+                        const response = await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload),
+                        });
+
+                        if (response.ok) {
+                            return await response.json();
+                        }
+                        
+                        const errorJson = await response.json().catch(() => ({ error: "Raw Server Response" }));
+                        
+                        if (attempts === maxAttempts) {
+                            throw new Error(`HTTP Error! Status: ${response.status}`, { cause: errorJson });
+                        }
+                        
+                        // Exponential backoff
+                        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempts - 1)));
+                        
+                    } catch (e) {
+                        if (attempts === maxAttempts) { throw e; }
+                        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempts - 1)));
+                    }
+                }
+                throw new Error(`Failed to complete task: ${taskName}`);
+            };
+
+            // --- Main Handler: Executes the selected workflow ---
+            const handleGeneratePlan = async () => {
+                setError(null);
+                setStep('loading');
+                setPlanData({}); 
+
+                if (formData.guests < 1) {
+                    setError({title: "Input Error", message: "Please enter a valid number of guests (1 or more)."});
+                    setStep('input');
+                    return;
+                }
+
+                const baseUrl = window.location.origin;
+                const currentWorkflow = WORKFLOW_TABS[mainActiveTab];
+                let combinedData = {};
+                
+                try {
+                    // Set the default result tab for the selected workflow
+                    setResultActiveTab(currentWorkflow.defaultResultTab);
+
+                    // Iterate through the required sections for this workflow
+                    for (const section of currentWorkflow.sections) {
+                        const result = await runApiCallWithRetry(
+                            `${baseUrl}${section.apiPath}`,
+                            formData, 
+                            section.label
+                        );
+
+                        if (!result || !result[section.dataKey]) {
+                             throw new Error(`AI Output Error: Missing expected key '${section.dataKey}' from ${section.label} function.`);
+                        }
+                        
+                        combinedData = { ...combinedData, ...result };
+                    }
+
+                    setPlanData(combinedData);
+                    setStep('results');
+                    
+                } catch (e) {
+                    console.error("Fetch/Processing Error:", e);
+                    const detailMessage = e.cause && e.cause.details ? 
+                                          `Server Detail: ${e.cause.details}` : 
+                                          e.message;
+
+                    setError({
+                        title: 'CRITICAL BACKEND ERROR',
+                        message: `Failed during: ${loadingMessage || 'Initial Request'}`,
+                        details: detailMessage,
+                    });
+                    setStep('input');
+                }
+            };
+
+            // --- Handlers ---
+            const handleChange = (e) => {
+                const { name, value } = e.target;
+                setFormData(prev => ({
+                    ...prev,
+                    [name]: name === 'guests' ? parseInt(value) || 0 : value,
+                }));
+            };
+
+            // --- Conditional Rendering ---
+
+            const renderContent = () => {
+                if (step === 'loading') {
+                    return (
+                        <div className="flex flex-col items-center justify-center p-12 bg-white rounded-xl shadow-lg">
+                            <i className="fa-solid fa-spinner fa-spin w-12 h-12 text-indigo-500 text-4xl"></i>
+                            <p className="mt-4 text-xl font-semibold text-gray-700">Generating Plan...</p>
+                            <p className="text-sm text-gray-500 mt-2 italic">{loadingMessage}</p>
+                            <p className="text-xs text-gray-400 mt-4">Generating a full plan requires 4 AI calls.</p>
+                        </div>
+                    );
+                }
+
+                if (step === 'results' && planData) {
+                    const currentWorkflow = WORKFLOW_TABS[mainActiveTab];
+                    const currentSection = Object.values(RESULT_SECTIONS).find(s => s.dataKey === resultActiveTab);
+                    const ActiveComponent = currentSection.component;
+                    
+                    // Filter the result sections that were generated in the current workflow
+                    const generatedSections = currentWorkflow.sections.map(s => s.dataKey);
+                    const availableResultTabs = Object.entries(RESULT_SECTIONS)
+                        .filter(([key, section]) => generatedSections.includes(section.dataKey));
+                    
+                    // This is needed because the resultActiveTab might not exist if we switch workflows.
+                    if (!availableResultTabs.some(([key]) => key === resultActiveTab)) {
+                        setResultActiveTab(currentWorkflow.defaultResultTab);
+                    }
+                    
+                    // Check if the data for the current tab exists before rendering
+                    if (!planData[currentSection.dataKey]) {
+                        return (
+                             <div className="bg-white p-6 rounded-xl shadow-lg min-h-[400px] flex items-center justify-center">
+                                <p className="text-red-500 font-semibold">Error: Data for {currentSection.label} is missing or incomplete.</p>
+                            </div>
+                        );
+                    }
+
+                    return (
+                        <div className="w-full">
+                            {/* Secondary/Result Tabs */}
+                            <div className="mb-6 flex space-x-2 border-b border-gray-200 overflow-x-auto pb-2">
+                                {availableResultTabs.map(([key, Tab]) => {
+                                    return (
+                                        <button
+                                            key={key}
+                                            onClick={() => setResultActiveTab(key)}
+                                            className={`flex items-center px-4 py-2 text-sm font-medium rounded-t-lg transition-colors duration-200 whitespace-nowrap ${
+                                                resultActiveTab === key
+                                                    ? 'bg-indigo-600 text-white shadow-md'
+                                                    : 'text-gray-700 hover:bg-gray-100'
+                                            }`}
+                                        >
+                                            <i className={`${Tab.icon} w-4 h-4 mr-2`}></i>
+                                            {Tab.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            
+                            {/* Result Content */}
+                            <div className="bg-white p-6 rounded-xl shadow-lg min-h-[400px]">
+                                <ActiveComponent 
+                                    plan={planData.MenuPlan || []} 
+                                    tasks={planData.TaskList || []} 
+                                    ideas={planData.DecorationIdeas || []} 
+                                    timeline={planData.Timeline || []} 
+                                />
+                                {/* Summary Display only on the Menu tab, if available */}
+                                {resultActiveTab === 'menu' && planData.Summary && (
+                                    <div className="mt-8 pt-6 border-t border-gray-200">
+                                        <h4 className="text-lg font-bold text-gray-800">Planner's Summary:</h4>
+                                        <p className="mt-2 text-gray-600 italic leading-relaxed">{planData.Summary}</p>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="mt-6 flex justify-end">
+                                <button
+                                    onClick={() => setStep('input')}
+                                    className="px-6 py-3 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition duration-200"
+                                >
+                                    Start New Plan
+                                </button>
+                            </div>
+                        </div>
+                    );
+                }
+
+                // --- Default: Input Screen ---
+                const currentWorkflow = WORKFLOW_TABS[mainActiveTab];
+                
+                return (
+                    <div className="w-full max-w-3xl bg-white p-8 rounded-xl shadow-2xl space-y-6">
+                        <h2 className="text-3xl font-extrabold text-gray-800 flex items-center border-b pb-3 mb-4">
+                            AI Party Planning Blueprint
+                        </h2>
+
+                        {/* --- Main Workflow Tabs (Input Screen) --- */}
+                        <div className="flex space-x-2 border-b border-gray-200 overflow-x-auto pb-2 mb-6">
+                            {Object.entries(WORKFLOW_TABS).map(([key, Tab]) => {
+                                return (
+                                    <button
+                                        key={key}
+                                        onClick={() => {
+                                            setMainActiveTab(key);
+                                            // Reset to input state to clear any partial results
+                                            setStep('input'); 
+                                        }}
+                                        className={`flex items-center px-4 py-3 text-base font-semibold rounded-t-lg transition-colors duration-200 whitespace-nowrap ${
+                                            mainActiveTab === key
+                                                ? 'bg-indigo-600 text-white shadow-lg'
+                                                : 'text-gray-700 hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        <i className={`${Tab.icon} w-5 h-5 mr-2`}></i>
+                                        {Tab.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {error && (
+                            <div className={`p-4 rounded-lg text-sm bg-red-100 border-red-400 text-red-700 border`}>
+                                <p className="font-bold">{error.title}</p>
+                                <p>{error.message}</p>
+                                {error.details && <p className="mt-1 font-mono text-xs overflow-auto max-h-20">{error.details}</p>}
+                                <p className="mt-2 text-xs">If this is a "Backend" error, ensure your Vercel functions (`/api/menu`, etc.) are deployed.</p>
+                            </div>
+                        )}
+
+                        {/* --- Core Inputs --- */}
+                        <div className="space-y-4">
+                            <label className="block">
+                                <span className="text-gray-700 font-medium flex items-center">
+                                    <i className="fa-solid fa-users w-4 h-4 mr-2 text-indigo-500"></i> Number of Guests
+                                </span>
+                                <input
+                                    type="number"
+                                    name="guests"
+                                    value={formData.guests}
+                                    onChange={handleChange}
+                                    min="1"
+                                    required
+                                    className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5"
+                                    placeholder="e.g., 25"
+                                />
+                            </label>
+
+                            <label className="block">
+                                <span className="text-gray-700 font-medium">Event Description (Theme, Vibe, Duration)</span>
+                                <textarea
+                                    name="partyDetails"
+                                    value={formData.partyDetails}
+                                    onChange={handleChange}
+                                    rows="3"
+                                    className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5"
+                                    placeholder="e.g., 3-hour casual BBQ for a 4th of July celebration with mixed ages."
+                                />
+                            </label>
+                        </div>
+                        
+                        {/* --- Conditional Menu Inputs --- */}
+                        {(mainActiveTab === 'full' || mainActiveTab === 'menu_shopping') && (
+                            <div className="space-y-4 pt-4 border-t border-gray-100">
+                                <h3 className="text-xl font-semibold text-gray-800">Menu Inputs (Optional)</h3>
+                                <p className="text-sm text-gray-500 italic">List items you plan to have, separated by commas. The AI will calculate quantities.</p>
+                                {['appetizers', 'mainCourses', 'sideDishes', 'desserts', 'beverages', 'otherItems'].map((key) => (
+                                    <label key={key} className="block">
+                                        <span className="text-gray-700 capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
+                                        <input
+                                            type="text"
+                                            name={key}
+                                            value={formData[key]}
+                                            onChange={handleChange}
+                                            className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5"
+                                            placeholder={`e.g., ${key === 'appetizers' ? 'Chips & dip, Veggie platter, Mini quiches' : 'List your items...'}`}
+                                        />
+                                    </label>
+                                ))}
+                            </div>
+                        )}
+
+
+                        <button
+                            onClick={handleGeneratePlan}
+                            disabled={step === 'loading' || formData.guests < 1}
+                            className="w-full flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 transition duration-200 transform hover:scale-[1.01]"
+                        >
+                            <i className="fa-solid fa-paper-plane w-5 h-5 mr-3"></i>
+                            Generate {currentWorkflow.label} ({currentWorkflow.sections.length} AI Call{currentWorkflow.sections.length !== 1 ? 's' : ''})
+                        </button>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50 p-4 sm:p-8 flex flex-col items-center">
+                    <header className="text-center mb-8">
+                        <h1 className="text-4xl font-black text-indigo-800">AI Event Planner</h1>
+                        <p className="text-lg text-gray-600 mt-2">Generate a comprehensive plan, tasks, schedule, and shopping list instantly.</p>
+                    </header>
+                    <main className="w-full flex justify-center">
+                        {renderContent()}
+                    </main>
+                </div>
+            );
+        };
+
+        // Mount the application
+        const rootElement = document.getElementById('root');
+        if (rootElement) {
+            // Use ReactDOM.createRoot(rootElement).render() for React 18
+            ReactDOM.createRoot(rootElement).render(
+                <React.StrictMode>
+                    <App />
+                </React.StrictMode>
+            );
+        }
+    </script>
+    
+    <!-- Load Font Awesome for Icons -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/js/all.min.js" crossorigin="anonymous"></script>
+</body>
+</html>
