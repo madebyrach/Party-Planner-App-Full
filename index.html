@@ -20,7 +20,7 @@
     <!-- The root element where the React application will be rendered -->
     <div id="root"></div>
 
-    <!-- 1. Load React and ReactDOM from UMD format (FIX: Ensures React is globally defined before Babel runs) -->
+    <!-- 1. Load React and ReactDOM from UMD format (Ensures React is globally defined before Babel runs) -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     
@@ -33,7 +33,6 @@
         const { useState, useEffect } = React; 
 
         // --- View Components for Tabs ---
-        // These components need to be defined *before* App uses them.
 
         const MenuPlanView = ({ plan }) => (
           <div className="space-y-4">
@@ -170,6 +169,21 @@
             const [planData, setPlanData] = useState({}); // Stores aggregated results
             const [error, setError] = useState(null);
 
+            // FIX: Use useEffect to synchronize the resultActiveTab when the main workflow changes.
+            // This prevents an infinite render loop caused by calling setResultActiveTab in the render function.
+            useEffect(() => {
+                if (step === 'results') {
+                    const currentWorkflow = WORKFLOW_TABS[mainActiveTab];
+                    const generatedSections = currentWorkflow.sections.map(s => s.dataKey);
+                    
+                    // Check if the current resultActiveTab is included in the current workflow's generated sections
+                    if (!generatedSections.includes(resultActiveTab)) {
+                        // If not, switch to the default tab for this workflow
+                        setResultActiveTab(currentWorkflow.defaultResultTab);
+                    }
+                }
+            }, [mainActiveTab, step, resultActiveTab]); // Depend on mainActiveTab and step
+
             // --- Utility Function: Execute API Call with Retry ---
             const runApiCallWithRetry = async (url, payload, taskName) => {
                 let attempts = 0;
@@ -223,7 +237,7 @@
                 let combinedData = {};
                 
                 try {
-                    // Set the default result tab for the selected workflow
+                    // Set the default result tab immediately before starting API calls
                     setResultActiveTab(currentWorkflow.defaultResultTab);
 
                     // Iterate through the required sections for this workflow
@@ -285,6 +299,11 @@
                 if (step === 'results' && planData) {
                     const currentWorkflow = WORKFLOW_TABS[mainActiveTab];
                     const currentSection = Object.values(RESULT_SECTIONS).find(s => s.dataKey === resultActiveTab);
+                    
+                    if (!currentSection) {
+                         return <div className="bg-white p-6 rounded-xl shadow-lg min-h-[400px] flex items-center justify-center text-red-500">Error: Invalid result section selected.</div>;
+                    }
+
                     const ActiveComponent = currentSection.component;
                     
                     // Filter the result sections that were generated in the current workflow
@@ -292,10 +311,7 @@
                     const availableResultTabs = Object.entries(RESULT_SECTIONS)
                         .filter(([key, section]) => generatedSections.includes(section.dataKey));
                     
-                    // This is needed because the resultActiveTab might not exist if we switch workflows.
-                    if (!availableResultTabs.some(([key]) => key === resultActiveTab)) {
-                        setResultActiveTab(currentWorkflow.defaultResultTab);
-                    }
+                    // We removed the setResultActiveTab call here, relying on the useEffect hook.
                     
                     // Check if the data for the current tab exists before rendering
                     if (!planData[currentSection.dataKey]) {
@@ -331,6 +347,7 @@
                             {/* Result Content */}
                             <div className="bg-white p-6 rounded-xl shadow-lg min-h-[400px]">
                                 <ActiveComponent 
+                                    // Robustly pass empty arrays if data is missing, preventing crashes in child components
                                     plan={planData.MenuPlan || []} 
                                     tasks={planData.TaskList || []} 
                                     ideas={planData.DecorationIdeas || []} 
