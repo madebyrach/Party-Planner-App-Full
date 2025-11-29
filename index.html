@@ -152,25 +152,25 @@
 
         const App = () => {
             // --- State Management ---
+            // Set initial state for inputs to empty strings for better user experience (using placeholders for guidance)
             const [step, setStep] = useState('input'); // 'input', 'loading', 'results'
             const [mainActiveTab, setMainActiveTab] = useState('full'); // 'full', 'menu_shopping', etc.
             const [resultActiveTab, setResultActiveTab] = useState('menu'); // The internal tab (Menu, Tasks, Timeline...)
             const [loadingMessage, setLoadingMessage] = useState('');
             const [formData, setFormData] = useState({
-                guests: 10,
-                partyDetails: 'Casual birthday party for 10 adults. Needs a fun, relaxed vibe.',
-                appetizers: 'Chips & dip, Cheese board',
-                mainCourses: 'Taco bar, Chili',
-                sideDishes: 'Cornbread, Salad',
-                desserts: 'Cake, Brownies',
-                beverages: 'Soda, Beer, Water',
-                otherItems: 'Plates, napkins, ice',
+                guests: '', // Changed to empty string for better UX
+                partyDetails: '', // Changed to empty string
+                appetizers: '', 
+                mainCourses: '',
+                sideDishes: '',
+                desserts: '',
+                beverages: '',
+                otherItems: '',
             });
             const [planData, setPlanData] = useState({}); // Stores aggregated results
             const [error, setError] = useState(null);
 
             // FIX: Use useEffect to synchronize the resultActiveTab when the main workflow changes.
-            // This prevents an infinite render loop caused by calling setResultActiveTab in the render function.
             useEffect(() => {
                 if (step === 'results') {
                     const currentWorkflow = WORKFLOW_TABS[mainActiveTab];
@@ -223,14 +223,20 @@
             // --- Main Handler: Executes the selected workflow ---
             const handleGeneratePlan = async () => {
                 setError(null);
-                setStep('loading');
-                setPlanData({}); 
-
-                if (formData.guests < 1) {
+                
+                // Input validation checks
+                const guestCount = parseInt(formData.guests)
+                if (guestCount < 1 || isNaN(guestCount)) {
                     setError({title: "Input Error", message: "Please enter a valid number of guests (1 or more)."});
-                    setStep('input');
                     return;
                 }
+                if (!formData.partyDetails.trim()) {
+                    setError({title: "Input Error", message: "Please provide a description of the event."});
+                    return;
+                }
+
+                setStep('loading');
+                setPlanData({}); 
 
                 const baseUrl = window.location.origin;
                 const currentWorkflow = WORKFLOW_TABS[mainActiveTab];
@@ -276,9 +282,13 @@
             // --- Handlers ---
             const handleChange = (e) => {
                 const { name, value } = e.target;
+                
                 setFormData(prev => ({
                     ...prev,
-                    [name]: name === 'guests' ? parseInt(value) || 0 : value,
+                    [name]: name === 'guests' 
+                        // FIX: Allow empty string for guests, preventing the '0' issue.
+                        ? value === '' ? '' : parseInt(value) || 0 
+                        : value,
                 }));
             };
 
@@ -310,8 +320,6 @@
                     const generatedSections = currentWorkflow.sections.map(s => s.dataKey);
                     const availableResultTabs = Object.entries(RESULT_SECTIONS)
                         .filter(([key, section]) => generatedSections.includes(section.dataKey));
-                    
-                    // We removed the setResultActiveTab call here, relying on the useEffect hook.
                     
                     // Check if the data for the current tab exists before rendering
                     if (!planData[currentSection.dataKey]) {
@@ -440,6 +448,7 @@
                                     value={formData.partyDetails}
                                     onChange={handleChange}
                                     rows="3"
+                                    required
                                     className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5"
                                     placeholder="e.g., 3-hour casual BBQ for a 4th of July celebration with mixed ages."
                                 />
@@ -451,7 +460,14 @@
                             <div className="space-y-4 pt-4 border-t border-gray-100">
                                 <h3 className="text-xl font-semibold text-gray-800">Menu Inputs (Optional)</h3>
                                 <p className="text-sm text-gray-500 italic">List items you plan to have, separated by commas. The AI will calculate quantities.</p>
-                                {['appetizers', 'mainCourses', 'sideDishes', 'desserts', 'beverages', 'otherItems'].map((key) => (
+                                {[
+                                    { key: 'appetizers', placeholder: 'e.g., Chips & dip, Veggie platter, Mini quiches' },
+                                    { key: 'mainCourses', placeholder: 'e.g., Grilled chicken, Veggie burgers' },
+                                    { key: 'sideDishes', placeholder: 'e.g., Potato salad, Corn on the cob' },
+                                    { key: 'desserts', placeholder: 'e.g., Birthday cake, Ice cream' },
+                                    { key: 'beverages', placeholder: 'e.g., Soda, Lemonade, Wine' },
+                                    { key: 'otherItems', placeholder: 'e.g., Plates, Napkins, Ice, Trash bags' }
+                                ].map(({ key, placeholder }) => (
                                     <label key={key} className="block">
                                         <span className="text-gray-700 capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
                                         <input
@@ -460,7 +476,7 @@
                                             value={formData[key]}
                                             onChange={handleChange}
                                             className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5"
-                                            placeholder={`e.g., ${key === 'appetizers' ? 'Chips & dip, Veggie platter, Mini quiches' : 'List your items...'}`}
+                                            placeholder={placeholder}
                                         />
                                     </label>
                                 ))}
@@ -470,7 +486,7 @@
 
                         <button
                             onClick={handleGeneratePlan}
-                            disabled={step === 'loading' || formData.guests < 1}
+                            disabled={step === 'loading' || formData.guests === '' || parseInt(formData.guests) < 1 || !formData.partyDetails.trim()}
                             className="w-full flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 transition duration-200 transform hover:scale-[1.01]"
                         >
                             <i className="fa-solid fa-paper-plane w-5 h-5 mr-3"></i>
