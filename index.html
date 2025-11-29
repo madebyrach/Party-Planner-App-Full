@@ -39,26 +39,30 @@
             <h3 className="text-xl font-bold text-indigo-700 flex items-center mb-4">
               <i className="fa-solid fa-cart-shopping w-5 h-5 mr-2"></i> Menu & Shopping List
             </h3>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 shadow-md rounded-lg">
-                <thead className="bg-indigo-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {plan.map((item, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.item}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.quantity}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.category}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {plan.length === 0 ? (
+                <p className="text-gray-500 italic p-4 bg-gray-50 rounded-lg">No menu items were generated or data was invalid.</p>
+            ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 shadow-md rounded-lg">
+                    <thead className="bg-indigo-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {plan.map((item, index) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.item}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.quantity}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.category}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+            )}
           </div>
         );
 
@@ -67,14 +71,18 @@
             <h3 className="text-xl font-bold text-indigo-700 flex items-center mb-4">
               <i className="fa-solid fa-list-check w-5 h-5 mr-2"></i> Pre-Event To-Do's
             </h3>
-            <ul className="space-y-3">
-              {tasks.map((taskItem, index) => (
-                <li key={index} className="flex items-start p-4 bg-white rounded-lg shadow border-l-4 border-indigo-500">
-                  <div className="flex-shrink-0 mt-0.5 text-indigo-600 font-bold w-1/4 text-sm">{taskItem.deadline}</div>
-                  <div className="ml-3 text-sm font-medium text-gray-800 w-3/4">{taskItem.task}</div>
-                </li>
-              ))}
-            </ul>
+            {tasks.length === 0 ? (
+                <p className="text-gray-500 italic p-4 bg-gray-50 rounded-lg">No tasks were generated or data was invalid.</p>
+            ) : (
+                <ul className="space-y-3">
+                  {tasks.map((taskItem, index) => (
+                    <li key={index} className="flex items-start p-4 bg-white rounded-lg shadow border-l-4 border-indigo-500">
+                      <div className="flex-shrink-0 mt-0.5 text-indigo-600 font-bold w-1/4 text-sm">{taskItem.deadline}</div>
+                      <div className="ml-3 text-sm font-medium text-gray-800 w-3/4">{taskItem.task}</div>
+                    </li>
+                  ))}
+                </ul>
+            )}
           </div>
         );
 
@@ -83,14 +91,18 @@
             <h3 className="text-xl font-bold text-indigo-700 flex items-center mb-4">
               <i className="fa-solid fa-calendar-day w-5 h-5 mr-2"></i> Day-of Schedule / Checklist
             </h3>
-            <ul className="space-y-3">
-              {timeline.map((event, index) => (
-                <li key={index} className="flex items-start p-4 bg-white rounded-lg shadow border-l-4 border-emerald-500">
-                  <div className="flex-shrink-0 mt-0.5 text-emerald-600 font-bold w-1/4 text-base">{event.time}</div>
-                  <div className="ml-3 text-base font-medium text-gray-800 w-3/4">{event.activity}</div>
-                </li>
-              ))}
-            </ul>
+            {timeline.length === 0 ? (
+                <p className="text-gray-500 italic p-4 bg-gray-50 rounded-lg">No timeline events were generated or data was invalid.</p>
+            ) : (
+                <ul className="space-y-3">
+                  {timeline.map((event, index) => (
+                    <li key={index} className="flex items-start p-4 bg-white rounded-lg shadow border-l-4 border-emerald-500">
+                      <div className="flex-shrink-0 mt-0.5 text-emerald-600 font-bold w-1/4 text-base">{event.time}</div>
+                      <div className="ml-3 text-base font-medium text-gray-800 w-3/4">{event.activity}</div>
+                    </li>
+                  ))}
+                </ul>
+            )}
           </div>
         );
 
@@ -99,15 +111,19 @@
             <h3 className="text-xl font-bold text-indigo-700 flex items-center mb-4">
               <i className="fa-solid fa-sparkles w-5 h-5 mr-2"></i> Decoration & Theme Ideas
             </h3>
-            <ul className="space-y-3">
-              {ideas.map((idea, index) => (
-                <li key={index} className="p-4 bg-white rounded-lg shadow">
-                  <p className="text-sm text-gray-500 font-medium">{idea.area}:</p>
-                  <p className="text-base text-gray-800 font-semibold">{idea.item}</p>
-                  <p className="text-sm text-indigo-500 italic">Style: {idea.style}</p>
-                </li>
-              ))}
-            </ul>
+            {ideas.length === 0 ? (
+                <p className="text-gray-500 italic p-4 bg-gray-50 rounded-lg">No decoration ideas were generated or data was invalid.</p>
+            ) : (
+                <ul className="space-y-3">
+                  {ideas.map((idea, index) => (
+                    <li key={index} className="p-4 bg-white rounded-lg shadow">
+                      <p className="text-sm text-gray-500 font-medium">{idea.area}:</p>
+                      <p className="text-base text-gray-800 font-semibold">{idea.item}</p>
+                      <p className="text-sm text-indigo-500 italic">Style: {idea.style}</p>
+                    </li>
+                  ))}
+                </ul>
+            )}
           </div>
         );
 
@@ -152,14 +168,13 @@
 
         const App = () => {
             // --- State Management ---
-            // Set initial state for inputs to empty strings for better user experience (using placeholders for guidance)
             const [step, setStep] = useState('input'); // 'input', 'loading', 'results'
             const [mainActiveTab, setMainActiveTab] = useState('full'); // 'full', 'menu_shopping', etc.
             const [resultActiveTab, setResultActiveTab] = useState('menu'); // The internal tab (Menu, Tasks, Timeline...)
             const [loadingMessage, setLoadingMessage] = useState('');
             const [formData, setFormData] = useState({
-                guests: '', // Changed to empty string for better UX
-                partyDetails: '', // Changed to empty string
+                guests: '', // Empty string for better UX
+                partyDetails: '', // Empty string for better UX
                 appetizers: '', 
                 mainCourses: '',
                 sideDishes: '',
@@ -170,19 +185,20 @@
             const [planData, setPlanData] = useState({}); // Stores aggregated results
             const [error, setError] = useState(null);
 
-            // FIX: Use useEffect to synchronize the resultActiveTab when the main workflow changes.
+            // Use useEffect to synchronize the resultActiveTab when the main workflow changes.
             useEffect(() => {
                 if (step === 'results') {
                     const currentWorkflow = WORKFLOW_TABS[mainActiveTab];
                     const generatedSections = currentWorkflow.sections.map(s => s.dataKey);
                     
                     // Check if the current resultActiveTab is included in the current workflow's generated sections
-                    if (!generatedSections.includes(resultActiveTab)) {
-                        // If not, switch to the default tab for this workflow
+                    // We check against the RESULT_SECTIONS values using the key to ensure we don't crash
+                    if (!Object.keys(RESULT_SECTIONS).includes(resultActiveTab) || !generatedSections.includes(RESULT_SECTIONS[resultActiveTab].dataKey)) {
+                        // If the currently selected result tab is not available in the new workflow, switch to default
                         setResultActiveTab(currentWorkflow.defaultResultTab);
                     }
                 }
-            }, [mainActiveTab, step, resultActiveTab]); // Depend on mainActiveTab and step
+            }, [mainActiveTab, step, resultActiveTab]); 
 
             // --- Utility Function: Execute API Call with Retry ---
             const runApiCallWithRetry = async (url, payload, taskName) => {
@@ -308,7 +324,7 @@
 
                 if (step === 'results' && planData) {
                     const currentWorkflow = WORKFLOW_TABS[mainActiveTab];
-                    const currentSection = Object.values(RESULT_SECTIONS).find(s => s.dataKey === resultActiveTab);
+                    const currentSection = RESULT_SECTIONS[resultActiveTab];
                     
                     if (!currentSection) {
                          return <div className="bg-white p-6 rounded-xl shadow-lg min-h-[400px] flex items-center justify-center text-red-500">Error: Invalid result section selected.</div>;
@@ -321,14 +337,13 @@
                     const availableResultTabs = Object.entries(RESULT_SECTIONS)
                         .filter(([key, section]) => generatedSections.includes(section.dataKey));
                     
-                    // Check if the data for the current tab exists before rendering
-                    if (!planData[currentSection.dataKey]) {
-                        return (
-                             <div className="bg-white p-6 rounded-xl shadow-lg min-h-[400px] flex items-center justify-center">
-                                <p className="text-red-500 font-semibold">Error: Data for {currentSection.label} is missing or incomplete.</p>
-                            </div>
-                        );
-                    }
+                    // --- CRITICAL FIX: Ensure all array data passed to children is indeed an array ---
+                    const menuPlanData = Array.isArray(planData.MenuPlan) ? planData.MenuPlan : [];
+                    const taskListData = Array.isArray(planData.TaskList) ? planData.TaskList : [];
+                    const timelineData = Array.isArray(planData.Timeline) ? planData.Timeline : [];
+                    const decorationData = Array.isArray(planData.DecorationIdeas) ? planData.DecorationIdeas : [];
+                    // -----------------------------------------------------------------------------------
+
 
                     return (
                         <div className="w-full">
@@ -355,11 +370,11 @@
                             {/* Result Content */}
                             <div className="bg-white p-6 rounded-xl shadow-lg min-h-[400px]">
                                 <ActiveComponent 
-                                    // Robustly pass empty arrays if data is missing, preventing crashes in child components
-                                    plan={planData.MenuPlan || []} 
-                                    tasks={planData.TaskList || []} 
-                                    ideas={planData.DecorationIdeas || []} 
-                                    timeline={planData.Timeline || []} 
+                                    // Pass validated array data
+                                    plan={menuPlanData} 
+                                    tasks={taskListData} 
+                                    ideas={decorationData} 
+                                    timeline={timelineData} 
                                 />
                                 {/* Summary Display only on the Menu tab, if available */}
                                 {resultActiveTab === 'menu' && planData.Summary && (
