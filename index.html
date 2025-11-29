@@ -185,20 +185,17 @@
             const [planData, setPlanData] = useState({}); // Stores aggregated results
             const [error, setError] = useState(null);
 
-            // Use useEffect to synchronize the resultActiveTab when the main workflow changes.
+            // CRITICAL STABILIZATION HOOK: Ensure resultActiveTab is valid for the current workflow
             useEffect(() => {
-                if (step === 'results') {
-                    const currentWorkflow = WORKFLOW_TABS[mainActiveTab];
-                    const generatedSections = currentWorkflow.sections.map(s => s.dataKey);
-                    
-                    // Check if the current resultActiveTab is included in the current workflow's generated sections
-                    // We check against the RESULT_SECTIONS values using the key to ensure we don't crash
-                    if (!Object.keys(RESULT_SECTIONS).includes(resultActiveTab) || !generatedSections.includes(RESULT_SECTIONS[resultActiveTab].dataKey)) {
-                        // If the currently selected result tab is not available in the new workflow, switch to default
-                        setResultActiveTab(currentWorkflow.defaultResultTab);
-                    }
+                const currentWorkflow = WORKFLOW_TABS[mainActiveTab];
+                // Get the list of result keys available in the current main workflow (e.g., ['menu', 'tasks'])
+                const generatedSectionKeys = currentWorkflow.sections.map(s => Object.keys(RESULT_SECTIONS).find(key => RESULT_SECTIONS[key].dataKey === s.dataKey));
+                
+                // If the current resultActiveTab is NOT in the list of available keys, reset it to the default.
+                if (!generatedSectionKeys.includes(resultActiveTab)) {
+                    setResultActiveTab(currentWorkflow.defaultResultTab);
                 }
-            }, [mainActiveTab, step, resultActiveTab]); 
+            }, [mainActiveTab, resultActiveTab]); 
 
             // --- Utility Function: Execute API Call with Retry ---
             const runApiCallWithRetry = async (url, payload, taskName) => {
@@ -209,20 +206,37 @@
                     attempts++;
                     setLoadingMessage(`Attempt ${attempts}/${maxAttempts}: Generating ${taskName}...`);
                     try {
-                        const response = await fetch(url, {
+                        // Using empty string for apiKey as per instructions
+                        const apiKey = ""; 
+                        const model = "gemini-2.5-flash-preview-09-2025";
+                        
+                        // Construct the request URL using the base API endpoint
+                        const apiUrl = `${url}?key=${apiKey}`;
+
+                        const geminiPayload = {
+                            contents: [{ parts: [{ text: JSON.stringify(payload) }] }],
+                            // Note: The structure of the request payload depends on the specific Vercel endpoint being called. 
+                            // Assuming Vercel endpoints expect the raw formData directly in the request body.
+                            // If the Vercel function expects a standard Gemini payload, this needs adjustment.
+                            // Given the existing structure, we continue to pass the raw form data to the Vercel endpoint.
+                            // If the API call fails, the issue may be in how the Vercel endpoint processes the request.
+                        };
+
+
+                        const response = await fetch(apiUrl, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload),
+                            body: JSON.stringify(payload), // Send raw formData to the Vercel endpoint
                         });
 
                         if (response.ok) {
                             return await response.json();
                         }
                         
-                        const errorJson = await response.json().catch(() => ({ error: "Raw Server Response" }));
+                        const errorText = await response.text().catch(() => "N/A");
                         
                         if (attempts === maxAttempts) {
-                            throw new Error(`HTTP Error! Status: ${response.status}`, { cause: errorJson });
+                            throw new Error(`HTTP Error! Status: ${response.status}. Response Body: ${errorText}`, { status: response.status, body: errorText });
                         }
                         
                         // Exponential backoff
@@ -241,7 +255,7 @@
                 setError(null);
                 
                 // Input validation checks
-                const guestCount = parseInt(formData.guests)
+                const guestCount = parseInt(formData.guests);
                 if (guestCount < 1 || isNaN(guestCount)) {
                     setError({title: "Input Error", message: "Please enter a valid number of guests (1 or more)."});
                     return;
@@ -254,40 +268,48 @@
                 setStep('loading');
                 setPlanData({}); 
 
-                const baseUrl = window.location.origin;
                 const currentWorkflow = WORKFLOW_TABS[mainActiveTab];
                 let combinedData = {};
                 
                 try {
-                    // Set the default result tab immediately before starting API calls
-                    setResultActiveTab(currentWorkflow.defaultResultTab);
+                    // 1. Set the step to loading and reset plan data
 
-                    // Iterate through the required sections for this workflow
+                    // 2. Iterate through the required sections for this workflow
                     for (const section of currentWorkflow.sections) {
+                        const baseUrl = window.location.origin; // Ensure base URL is correct for Vercel functions
                         const result = await runApiCallWithRetry(
                             `${baseUrl}${section.apiPath}`,
                             formData, 
                             section.label
                         );
 
+                        // Basic check for expected key presence
                         if (!result || !result[section.dataKey]) {
-                             throw new Error(`AI Output Error: Missing expected key '${section.dataKey}' from ${section.label} function.`);
+                             console.error("AI Response Error:", result);
+                             throw new Error(`AI Output Error: Missing expected key '${section.dataKey}'. Received: ${JSON.stringify(result)}`);
                         }
                         
                         combinedData = { ...combinedData, ...result };
                     }
 
+                    // 3. Set all combined data and transition to results
                     setPlanData(combinedData);
                     setStep('results');
                     
                 } catch (e) {
                     console.error("Fetch/Processing Error:", e);
-                    const detailMessage = e.cause && e.cause.details ? 
-                                          `Server Detail: ${e.cause.details}` : 
-                                          e.message;
+                    
+                    // Improved error messaging based on the cause
+                    let detailMessage = e.message;
+                    if (e.status) {
+                        detailMessage = `Status: ${e.status}. Response: ${e.body}`;
+                    } else if (e.cause) {
+                        detailMessage = JSON.stringify(e.cause);
+                    }
+
 
                     setError({
-                        title: 'CRITICAL BACKEND ERROR',
+                        title: 'PLANNER FAILED',
                         message: `Failed during: ${loadingMessage || 'Initial Request'}`,
                         details: detailMessage,
                     });
@@ -302,8 +324,8 @@
                 setFormData(prev => ({
                     ...prev,
                     [name]: name === 'guests' 
-                        // FIX: Allow empty string for guests, preventing the '0' issue.
-                        ? value === '' ? '' : parseInt(value) || 0 
+                        // CRITICAL FIX: Ensure guests field handles empty string correctly for number type
+                        ? value === '' ? '' : Math.max(1, parseInt(value) || 0) // Also prevents negative numbers
                         : value,
                 }));
             };
@@ -323,39 +345,48 @@
                 }
 
                 if (step === 'results' && planData) {
-                    const currentWorkflow = WORKFLOW_TABS[mainActiveTab];
+                    // Use resultActiveTab directly to look up the section
                     const currentSection = RESULT_SECTIONS[resultActiveTab];
                     
-                    if (!currentSection) {
-                         return <div className="bg-white p-6 rounded-xl shadow-lg min-h-[400px] flex items-center justify-center text-red-500">Error: Invalid result section selected.</div>;
+                    // FALLBACK CHECK: Should be prevented by useEffect, but good for safety
+                    if (!currentSection || !planData[currentSection.dataKey]) {
+                         return (
+                            <div className="bg-white p-6 rounded-xl shadow-lg min-h-[400px] flex items-center justify-center text-red-500">
+                                <p className="font-semibold">Plan data is incomplete or the selected tab ({currentSection?.label || resultActiveTab}) has no generated content.</p>
+                                <button onClick={() => setStep('input')} className="ml-4 text-indigo-600 hover:text-indigo-800 underline">Start Over</button>
+                            </div>
+                         );
                     }
 
                     const ActiveComponent = currentSection.component;
                     
                     // Filter the result sections that were generated in the current workflow
-                    const generatedSections = currentWorkflow.sections.map(s => s.dataKey);
-                    const availableResultTabs = Object.entries(RESULT_SECTIONS)
-                        .filter(([key, section]) => generatedSections.includes(section.dataKey));
+                    const currentWorkflow = WORKFLOW_TABS[mainActiveTab];
+                    const availableResultTabs = currentWorkflow.sections.map(s => ({
+                        key: Object.keys(RESULT_SECTIONS).find(k => RESULT_SECTIONS[k].dataKey === s.dataKey),
+                        ...s,
+                    }));
                     
-                    // --- CRITICAL FIX: Ensure all array data passed to children is indeed an array ---
-                    const menuPlanData = Array.isArray(planData.MenuPlan) ? planData.MenuPlan : [];
-                    const taskListData = Array.isArray(planData.TaskList) ? planData.TaskList : [];
-                    const timelineData = Array.isArray(planData.Timeline) ? planData.Timeline : [];
-                    const decorationData = Array.isArray(planData.DecorationIdeas) ? planData.DecorationIdeas : [];
+                    // CRITICAL FIX: Ensure all array data passed to children is indeed an array
+                    const getArrayData = (key) => Array.isArray(planData[key]) ? planData[key] : [];
+                    
+                    const menuPlanData = getArrayData('MenuPlan');
+                    const taskListData = getArrayData('TaskList');
+                    const timelineData = getArrayData('Timeline');
+                    const decorationData = getArrayData('DecorationIdeas');
                     // -----------------------------------------------------------------------------------
-
 
                     return (
                         <div className="w-full">
                             {/* Secondary/Result Tabs */}
                             <div className="mb-6 flex space-x-2 border-b border-gray-200 overflow-x-auto pb-2">
-                                {availableResultTabs.map(([key, Tab]) => {
+                                {availableResultTabs.map((Tab) => {
                                     return (
                                         <button
-                                            key={key}
-                                            onClick={() => setResultActiveTab(key)}
+                                            key={Tab.key}
+                                            onClick={() => setResultActiveTab(Tab.key)}
                                             className={`flex items-center px-4 py-2 text-sm font-medium rounded-t-lg transition-colors duration-200 whitespace-nowrap ${
-                                                resultActiveTab === key
+                                                resultActiveTab === Tab.key
                                                     ? 'bg-indigo-600 text-white shadow-md'
                                                     : 'text-gray-700 hover:bg-gray-100'
                                             }`}
@@ -402,7 +433,7 @@
                 return (
                     <div className="w-full max-w-3xl bg-white p-8 rounded-xl shadow-2xl space-y-6">
                         <h2 className="text-3xl font-extrabold text-gray-800 flex items-center border-b pb-3 mb-4">
-                            AI Party Planning Blueprint
+                            AI Event Planner
                         </h2>
 
                         {/* --- Main Workflow Tabs (Input Screen) --- */}
@@ -433,8 +464,8 @@
                             <div className={`p-4 rounded-lg text-sm bg-red-100 border-red-400 text-red-700 border`}>
                                 <p className="font-bold">{error.title}</p>
                                 <p>{error.message}</p>
-                                {error.details && <p className="mt-1 font-mono text-xs overflow-auto max-h-20">{error.details}</p>}
-                                <p className="mt-2 text-xs">If this is a "Backend" error, ensure your Vercel functions (`/api/menu`, etc.) are deployed.</p>
+                                {error.details && <p className="mt-1 font-mono text-xs overflow-auto max-h-20">Details: {error.details}</p>}
+                                <p className="mt-2 text-xs">If this is a "Planner Failed" error, check the console for more details about the API response.</p>
                             </div>
                         )}
 
